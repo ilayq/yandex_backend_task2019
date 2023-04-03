@@ -1,13 +1,15 @@
+import datetime
+from datetime import date
 from sqlalchemy import Column, Integer, Date, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from pydantic import BaseModel, ValidationError, validator
-from datetime import date
+from typing import List, Optional
 
 
 Base = declarative_base()
 
 
-class Import(Base):
+class ImportORM(Base):
     __tablename__ = 'imports'
 
     import_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -29,23 +31,33 @@ class CitizenORM(Base):
 
 class Citizen(BaseModel):
     citizen_id: int
-    import_id: int
     town: str
     street: str
     building: str
     apartment: int
     name: str
-    birth_date: date
+    birth_date: str
     gender: str
+    relatives: Optional[List[int]] = []
+
+    def from_orm(obj: CitizenORM):
+        d = obj.__dict__
+        cit = Citizen(
+            citizen_id=d['citizen_id'],
+            town=d['town'],
+            street=d['street'],
+            building=d['building'],
+            apartment=d['apartment'],
+            name=d['name'],
+            birth_date=d['birth_date'].strftime("%d.%m.%Y"),
+            gender=d['gender'],
+            relatives=[],
+        )
+        return cit
 
     @validator('citizen_id')
     def validate_citizen_id(cls, v: int):
         assert type(v) == int
-        assert v > 0
-        return v
-
-    @validator('import_id')
-    def validate_import_id(cls, v: int):
         assert v > 0
         return v
 
@@ -70,7 +82,7 @@ class Citizen(BaseModel):
     @validator('apartment')
     def validate_apartment(cls, v: int):
         assert type(v) == int
-        assert v >= 0
+        assert v > 0
         return v
 
     @validator('name')
@@ -82,25 +94,49 @@ class Citizen(BaseModel):
     @validator('birth_date')
     def validate_bd(cls, v: str):
         try:
-            date.fromisoformat(v)
+            bd = date.fromisoformat('-'.join(v.split('.')[::-1]))
+            assert bd < datetime.date.today()
         except Exception:
             raise ValidationError
         return v
 
     @validator('gender')
     def validate_gender(cls, v: str):
-        assert v == 'male' or v == 'female'
+        assert v.strip() == 'male' or v == 'female'
         return v
 
     class Config:
         orm_mode = True
+        validate_assignment = True
 
 
-class Relative(Base):
+class CitizenList(BaseModel):
+    citizens: List[Citizen]
+
+    class Config:
+        validate_assingment = True
+
+class CitizenPatch(BaseModel):
+    town: Optional[str]
+    street: Optional[str]
+    building: Optional[str]
+    apartment: Optional[int]
+    name: Optional[str]
+    birth_date: Optional[str]
+    gender: Optional[str]
+    relatives: Optional[List[int]] = []
+
+
+class PresentsResponse(BaseModel):
+    citizen_id: int
+    presents: int
+
+
+class RelativeORM(Base):
     __tablename__ = 'relations'
 
-    citizen_id = Column(Integer, ForeignKey('citizens.citizen_id'), primary_key=True,)
     import_id = Column(Integer, ForeignKey("imports.import_id"))
+    citizen_id = Column(Integer, ForeignKey('citizens.citizen_id'), primary_key=True,)
     relative_id = Column(Integer, ForeignKey('citizens.citizen_id'))
 
 
