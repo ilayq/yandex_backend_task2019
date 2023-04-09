@@ -1,1 +1,1 @@
-DB_CONNECTION_STRING = 'postgresql://postgres:Bakugan_2025@localhost:5432'
+DB_CONNECTION_STRING = 'postgresql://postgres:hackme@localhost:5432'
